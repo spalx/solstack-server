@@ -96,7 +96,7 @@ export const trelloIntegration: Integration = {
       label: 'App name',
       type: 'text',
       required: false,
-      default: 'Harness',
+      default: 'Solstack',
       help: 'Shown to developers on Trello\'s authorization screen.',
     },
     {
@@ -138,7 +138,7 @@ export const trelloIntegration: Integration = {
   authorizeUrl(context, state) {
     const url = new URL('https://trello.com/1/authorize');
     url.searchParams.set('key', context.config.apiKey ?? '');
-    url.searchParams.set('name', context.config.appName ?? 'Harness');
+    url.searchParams.set('name', context.config.appName ?? 'Solstack');
     url.searchParams.set('scope', context.config.scope ?? 'read,write');
     url.searchParams.set('expiration', context.config.expiration ?? 'never');
     url.searchParams.set('response_type', 'token');

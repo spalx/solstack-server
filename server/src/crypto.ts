@@ -1,11 +1,11 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 
 export const TOKEN_PREFIX = {
-  session: 'hss',
-  developer: 'hsd',
-  repository: 'hsr',
-  invite: 'hsi',
-  state: 'hst',
+  session: 'sss',
+  developer: 'ssd',
+  repository: 'ssr',
+  invite: 'ssi',
+  state: 'sst',
 } as const;
 
 export function generateToken(prefix: string): string {

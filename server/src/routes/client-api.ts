@@ -1,19 +1,20 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireDeveloperToken, requireRepositoryKey } from '../auth.js';
 import { AGENTS } from '../catalog.js';
 import type { AppDeps } from '../deps.js';
+import { HttpError } from '../http.js';
 import { connectionStatuses } from '../services/developer-status.js';
+import type { Repository } from '../store/repositories.js';
 import { publicUser } from './auth.js';
 
 /** Token-authenticated API for the client app. Versioned so older clients keep working. */
 export function clientApiRoutes({ config, stores, integrations }: AppDeps): Router {
   const router = Router();
 
-  /** What `init` needs to set a repository up. Authenticated with the repository API key. */
-  router.get('/v1/repository', requireRepositoryKey(stores), async (req, res) => {
-    const repository = req.repository!;
+  async function repositorySetup(repository: Repository) {
     const states = await integrations.states();
-    res.json({
+    return {
       repository: { id: repository.id, name: repository.name, gitUrl: repository.gitUrl },
       agents: AGENTS.filter((agent) => repository.agents.includes(agent.id)),
       requiredIntegrations: repository.requiredIntegrations.map((id) => {
@@ -21,7 +22,19 @@ export function clientApiRoutes({ config, stores, integrations }: AppDeps): Rout
         return { id, name: state?.integration.name ?? id, available: Boolean(state?.enabled && state.configured) };
       }),
       server: { url: config.baseUrl, mcpUrl: `${config.baseUrl}/mcp` },
-    });
+    };
+  }
+
+  /** What `init` needs to set a repository up. Authenticated with the repository API key. */
+  router.get('/v1/repository', requireRepositoryKey(stores), async (req, res) => {
+    res.json(await repositorySetup(req.repository!));
+  });
+
+  /** The same setup for a repository that is already initialized, read by any signed-in developer. */
+  router.get('/v1/repositories/:id', requireDeveloperToken(stores), async (req, res) => {
+    const repository = await stores.repositories.findById(z.uuid().parse(req.params.id));
+    if (!repository) throw new HttpError(404, 'Repository not found. It may have been deleted on the server.');
+    res.json(await repositorySetup(repository));
   });
 
   /** Who the developer is and what they have connected. Authenticated with a developer access token. */

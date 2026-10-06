@@ -35,6 +35,6 @@ describe('passwords', () => {
 
 describe('generateToken', () => {
   it('prefixes tokens so their kind is recognizable', () => {
-    expect(generateToken('hsd')).toMatch(/^hsd_[A-Za-z0-9_-]{43}$/);
+    expect(generateToken('ssd')).toMatch(/^ssd_[A-Za-z0-9_-]{43}$/);
   });
 });

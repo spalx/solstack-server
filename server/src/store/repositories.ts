@@ -51,6 +51,11 @@ export class RepositoryStore {
     return rows.map(toRepository);
   }
 
+  async findById(id: string): Promise<Repository | null> {
+    const { rows } = await this.pool.query<RepositoryRow>('SELECT * FROM repositories WHERE id = $1', [id]);
+    return rows[0] ? toRepository(rows[0]) : null;
+  }
+
   async findByName(name: string): Promise<Repository | null> {
     const { rows } = await this.pool.query<RepositoryRow>('SELECT * FROM repositories WHERE name = $1', [name]);
     return rows[0] ? toRepository(rows[0]) : null;

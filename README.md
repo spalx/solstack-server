@@ -1,18 +1,25 @@
-# Harness
+# Solstack
 
-Server for managing AI-assisted development across repositories and coding agents:
+Spec-driven development with coding agents, managed from one server. Solstack has two parts.
+
+The **server**:
 
 - **Admin console**: register repositories (each gets an API key for the client's `init`), choose which agents each one supports, and say which integrations its developers must connect.
 - **MCP gateway**: a single MCP endpoint (`/mcp`) every agent can use. It exposes GitHub and Trello tools that act **as the developer**, using the authorization each developer granted individually.
 - **Developer portal**: developers connect GitHub and Trello once, here, and create personal access tokens for their agents and the client app.
 
-The client app (`init`, slash commands, writing agent configuration) is not built yet. It will use the `/api/v1` endpoints described below.
+The **client** (`solstack` CLI):
+
+- `solstack init` sets a repository up for its agents: OpenSpec in `.solstack/openspec/`, the `/ss-propose`, `/ss-apply` and `/ss-archive` commands, `AGENTS.md`, and each agent's MCP configuration.
+- `solstack setup` gets a developer going: signs in, opens the GitHub and Trello authorizations the repository requires, and registers agents that keep their MCP config per user.
+- `solstack mcp` is the local MCP server every agent starts. It forwards to the gateway with the developer's own token, so the committed configuration holds no secrets.
 
 ## Layout
 
 ```
 server/   Express + TypeScript API, MCP gateway, Postgres migrations, tests
 web/      Vue 3 + PrimeVue + Tailwind admin console and developer portal
+client/   The solstack CLI: repository setup, agent files, MCP bridge, OpenSpec wrapper
 docker/   Postgres init scripts
 ```
 
@@ -30,7 +37,9 @@ npm run admin:create -- you@example.com "Your Name"   # prints an invite link to
 
 Open the invite link, set a password, and you land in the admin console. In development `BASE_URL` must be `http://localhost:5173` so OAuth callbacks and links go through Vite.
 
-Tests run against the `harness_test` database the compose file creates:
+To try the CLI from this checkout, link it once (`npm link -w client`) so `solstack` is on your PATH. Agents start `solstack mcp` by name.
+
+Tests run against the `solstack_test` database the compose file creates (the client tests need no database):
 
 ```bash
 npm test
@@ -40,13 +49,13 @@ npm test
 
 1. Point a domain at the VPS and put an HTTPS reverse proxy in front of port 3000. OAuth providers require HTTPS callbacks. With [Caddy](https://caddyserver.com/), the whole config is:
    ```
-   harness.example.com {
+   solstack.example.com {
        reverse_proxy localhost:3000
    }
    ```
 2. Create `.env` next to `docker-compose.yml`:
    ```
-   BASE_URL=https://harness.example.com
+   BASE_URL=https://solstack.example.com
    ENCRYPTION_KEY=<openssl rand -base64 32>
    POSTGRES_PASSWORD=<a strong password>
    TRUST_PROXY=1
@@ -69,22 +78,71 @@ Each integration's page under **Administration → Integrations** shows the exac
 
 **Trello**: create a Power-Up at <https://trello.com/power-ups/admin>, generate its API key, and add `BASE_URL` to the key's **Allowed origins**. Paste the API key, then enable. Trello returns the developer's token in the URL fragment, so the web app's `/connect/trello` page reads it and posts it to the server.
 
-## How developers use it
+## The developer portal
 
-1. Open the invite link and set a password.
-2. **Connections**: connect GitHub and Trello. Each connection acts as that developer, with their own permissions.
-3. **Agent access**: create a token, then add the gateway to the agent with the snippet shown (Claude Code, Cursor, VS Code or Codex). The client app will automate this step.
+1. Developers open their invite link and set a password.
+2. **Connections**: connect GitHub and Trello. Each connection acts as that developer, with their own permissions. `solstack setup` and `solstack connect` open these same pages.
+3. **Agent access**: create a token for `solstack login`. The page also shows how to add the gateway to an agent by hand, for agents outside a Solstack repository.
 
 If a developer hasn't connected an integration, or their authorization expired, tool calls return an error with the link to fix it, and the agent relays it.
 
-## API for the client app
+## Using the client
+
+### Setting up a repository (once, by whoever owns it)
+
+An admin adds the repository under **Administration → Repositories**, picks its agents and required integrations, and copies its API key. Then, in the repository:
+
+```bash
+solstack init --key ssr_… --server https://solstack.example.com
+git add -A && git commit -m "Set up Solstack"
+```
+
+`init` writes:
+
+| Path | What it is |
+|---|---|
+| `.solstack/config.json` | Server, repository, agents, command prefix |
+| `.solstack/commands/*.md` | The full propose, apply and archive instructions, shared by every agent |
+| `.solstack/openspec/` | OpenSpec specs and changes |
+| `AGENTS.md`, `CLAUDE.md` | A marked section explaining the workflow; anything outside the markers is left alone |
+| `.claude/commands/`, `.cursor/commands/`, `.github/prompts/`, `.agents/skills/`, `.devin/workflows/`, `.gemini/commands/` | Short command files for each selected agent, pointing at `.solstack/commands/` |
+| `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json` | A `solstack` MCP server entry, merged with any servers already there |
+
+When the admin changes the repository's agents, run `solstack update` and commit the result. Files belonging to agents that were removed are deleted. Use `--prefix` on `init` for a command prefix other than `ss`.
+
+### Setting up as a developer (once per machine)
+
+```bash
+npm install -g @solstack/cli
+solstack setup     # in the repository
+```
+
+`setup` asks for a personal access token (created under **Agent access**), opens the authorization page for each integration the repository requires and waits until it is connected, and adds the MCP server to Codex. Devin Desktop needs it added by hand (`solstack setup` says how). Claude Code asks once to approve the project's `solstack` MCP server.
+
+### Day to day
+
+| Command | Does |
+|---|---|
+| `/ss-propose <idea, GitHub issue or Trello card>` | Plans the change in `.solstack/openspec/changes/` without touching code |
+| `/ss-apply [change]` | Implements the plan task by task |
+| `/ss-archive [change]` | Merges the change's specs into the main specs and archives it |
+| `solstack status` | Shows sign-in, integrations and open changes; exits 1 if something required is missing |
+| `solstack connect [github\|trello]` | Reconnects an integration |
+| `solstack spec <args>` | Runs the bundled OpenSpec CLI against `.solstack/openspec` |
+
+In Codex the commands are skills: `$ss-propose`, `$ss-apply` and `$ss-archive`.
+
+For CI, `SOLSTACK_SERVER` and `SOLSTACK_TOKEN` override the stored sign-in.
+
+## Client API
 
 Token-authenticated (`Authorization: Bearer …`). There are no cookies on these routes.
 
 | Endpoint | Auth | Returns |
 |---|---|---|
-| `GET /api/v1/repository` | Repository API key (`hsr_…`) | Repository, supported agents, required integrations, MCP URL |
-| `GET /api/v1/me` | Developer token (`hsd_…`) | User and connection status for each integration |
+| `GET /api/v1/repository` | Repository API key (`ssr_…`) | Repository, supported agents, required integrations, MCP URL |
+| `GET /api/v1/repositories/:id` | Developer token | The same, for `solstack update` |
+| `GET /api/v1/me` | Developer token (`ssd_…`) | User and connection status for each integration |
 | `POST /mcp` | Developer token | MCP over Streamable HTTP (stateless) |
 
 ## Security notes

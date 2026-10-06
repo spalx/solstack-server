@@ -6,9 +6,9 @@ import { bootstrap } from '../src/bootstrap.js';
 import type { Config } from '../src/config.js';
 import type { AppDeps } from '../src/deps.js';
 
-export const BASE_URL = 'http://harness.test';
+export const BASE_URL = 'http://solstack.test';
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://harness:harness@localhost:5432/harness_test';
+const DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://solstack:solstack@localhost:5432/solstack_test';
 
 export type FetchHandler = (url: URL, init: RequestInit) => Response | Promise<Response> | undefined;
 

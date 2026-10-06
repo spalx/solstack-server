@@ -93,7 +93,7 @@ async function github<T>(
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${context.credentials.accessToken}`,
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'harness-gateway',
+      'User-Agent': 'solstack-gateway',
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,

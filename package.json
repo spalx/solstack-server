@@ -1,15 +1,16 @@
 {
-  "name": "harness",
+  "name": "solstack",
   "private": true,
   "workspaces": [
     "server",
-    "web"
+    "web",
+    "client"
   ],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
-    "build": "npm run build -w web && npm run build -w server",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
-    "test": "npm test -w server",
+    "build": "npm run build -w web && npm run build -w server && npm run build -w client",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web && npm run typecheck -w client",
+    "test": "npm test -w server && npm test -w client",
     "admin:create": "npm run cli -w server -- create-admin"
   },
   "devDependencies": {

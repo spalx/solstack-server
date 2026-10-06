@@ -49,6 +49,11 @@ describe('sessions and access control', () => {
     await admin.post('/api/admin/repositories').set('Origin', 'https://evil.example').send({ name: 'x' }).expect(403);
   });
 
+  it('sends signed-out developers to sign in, then back into the authorization flow', async () => {
+    const res = await supertest(t.app).get('/api/connect/github/start').expect(302);
+    expect(res.headers.location).toBe('/login?next=%2Fapi%2Fconnect%2Fgithub%2Fstart');
+  });
+
   it('keeps developers out of the admin API', async () => {
     await developer.get('/api/admin/users').expect(403);
     await supertest(t.app).get('/api/admin/users').expect(401);
@@ -92,7 +97,7 @@ describe('repositories', () => {
       .post('/api/admin/repositories')
       .send({ name: 'acme/web', agents: ['claude-code', 'cursor'], requiredIntegrations: ['github', 'trello'] })
       .expect(201);
-    expect(created.body.apiKey).toMatch(/^hsr_/);
+    expect(created.body.apiKey).toMatch(/^ssr_/);
     await admin.post('/api/admin/repositories').send({ name: 'acme/web' }).expect(409);
     await admin.post('/api/admin/repositories').send({ name: 'x', agents: ['notepad'] }).expect(400);
 
@@ -106,6 +111,16 @@ describe('repositories', () => {
       { id: 'trello', name: 'Trello', available: false },
     ]);
     expect(config.body.server.mcpUrl).toBe(`${BASE_URL}/mcp`);
+
+    const byId = await supertest(t.app)
+      .get(`/api/v1/repositories/${created.body.repository.id}`)
+      .set('Authorization', `Bearer ${developerToken}`)
+      .expect(200);
+    expect(byId.body).toEqual(config.body);
+    await supertest(t.app)
+      .get(`/api/v1/repositories/${created.body.repository.id}`)
+      .set('Authorization', `Bearer ${created.body.apiKey}`)
+      .expect(401);
 
     const rotated = await admin.post(`/api/admin/repositories/${created.body.repository.id}/rotate-key`).expect(200);
     await supertest(t.app).get('/api/v1/repository').set('Authorization', `Bearer ${created.body.apiKey}`).expect(401);
@@ -150,7 +165,7 @@ describe('connecting GitHub', () => {
 describe('MCP gateway', () => {
   it('requires a developer token', async () => {
     await supertest(t.app).post('/mcp').send(mcpRequest('tools/list')).expect(401);
-    await mcp('hsd_not-a-real-token', mcpRequest('tools/list')).expect(401);
+    await mcp('ssd_not-a-real-token', mcpRequest('tools/list')).expect(401);
   });
 
   it('initializes and lists only tools of enabled integrations', async () => {
@@ -158,11 +173,11 @@ describe('MCP gateway', () => {
       developerToken,
       mcpRequest('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } }),
     ).expect(200);
-    expect(init.body.result.serverInfo.name).toBe('harness-gateway');
+    expect(init.body.result.serverInfo.name).toBe('solstack-gateway');
 
     const list = await mcp(developerToken, mcpRequest('tools/list')).expect(200);
     const names: string[] = list.body.result.tools.map((tool: { name: string }) => tool.name);
-    expect(names).toContain('harness_connections');
+    expect(names).toContain('solstack_connections');
     expect(names).toContain('github_list_issues');
     expect(names.some((name) => name.startsWith('trello_'))).toBe(false);
   });

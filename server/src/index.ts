@@ -7,7 +7,7 @@ const deps = await bootstrap(config);
 const app = createApp(deps);
 
 const server = app.listen(config.port, () => {
-  console.log(`Harness server listening on port ${config.port} (public URL ${config.baseUrl})`);
+  console.log(`Solstack server listening on port ${config.port} (public URL ${config.baseUrl})`);
 });
 
 const purge = setInterval(

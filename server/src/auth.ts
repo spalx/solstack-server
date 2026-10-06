@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-export const SESSION_COOKIE = 'harness_session';
+export const SESSION_COOKIE = 'solstack_session';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -93,7 +93,7 @@ export function requireDeveloperToken(stores: Stores): RequestHandler {
     const userId = token ? await stores.accessTokens.authenticate(token) : null;
     const user = userId ? await stores.users.findById(userId) : null;
     if (!user || user.disabled) {
-      res.set('WWW-Authenticate', 'Bearer realm="harness"');
+      res.set('WWW-Authenticate', 'Bearer realm="solstack"');
       throw new HttpError(401, 'Valid developer access token required');
     }
     req.user = user;
@@ -107,7 +107,7 @@ export function requireRepositoryKey(stores: Stores): RequestHandler {
     const token = bearerToken(req.get('authorization'));
     const repository = token ? await stores.repositories.authenticate(token) : null;
     if (!repository) {
-      res.set('WWW-Authenticate', 'Bearer realm="harness"');
+      res.set('WWW-Authenticate', 'Bearer realm="solstack"');
       throw new HttpError(401, 'Valid repository API key required');
     }
     req.repository = repository;

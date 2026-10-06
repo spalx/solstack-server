@@ -9,7 +9,7 @@ import App from './App.vue';
 import { router } from './router';
 import './style.css';
 
-const Harness = definePreset(Aura, {
+const Solstack = definePreset(Aura, {
   semantic: {
     primary: {
       50: '{indigo.50}',
@@ -30,7 +30,7 @@ const Harness = definePreset(Aura, {
 createApp(App)
   .use(PrimeVue, {
     theme: {
-      preset: Harness,
+      preset: Solstack,
       options: {
         darkModeSelector: 'system',
         cssLayer: { name: 'primevue', order: 'theme, base, primevue' },

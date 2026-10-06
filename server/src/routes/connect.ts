@@ -34,7 +34,8 @@ export function connectRoutes({ stores, integrations }: AppDeps): Router {
   }
 
   router.get('/connect/:id/start', async (req, res) => {
-    if (!req.user) return res.redirect('/login?next=/connections');
+    // Signing in first returns the developer here, so the flow continues where it started.
+    if (!req.user) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
     const { integration, enabled, configured, context } = await integrations.state(req.params.id);
     if (!enabled || !configured) {
       return backToConnections(res, { error: `${integration.name} is not enabled on this server.` });

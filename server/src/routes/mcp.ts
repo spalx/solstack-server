@@ -6,7 +6,7 @@ import type { AppDeps } from '../deps.js';
 import { connectionStatuses } from '../services/developer-status.js';
 import type { User } from '../store/users.js';
 
-const SERVER_INFO = { name: 'harness-gateway', version: '0.1.0' };
+const SERVER_INFO = { name: 'solstack-gateway', version: '0.1.0' };
 
 /**
  * Builds an MCP server for one request. The tool list depends on which integrations the admin has
@@ -20,7 +20,7 @@ async function buildServer({ config, stores, integrations, gateway }: AppDeps, u
   });
 
   server.registerTool(
-    'harness_connections',
+    'solstack_connections',
     {
       title: 'Integration connections',
       description: 'Show which integrations are available and whether the developer has connected each one.',

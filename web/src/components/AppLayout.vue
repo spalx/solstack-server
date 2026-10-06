@@ -51,7 +51,7 @@ async function logout() {
     <header
       class="flex items-center justify-between border-b border-surface-200 bg-surface-0 px-4 py-3 md:hidden dark:border-surface-800 dark:bg-surface-900"
     >
-      <span class="font-semibold">Harness</span>
+      <span class="font-semibold">Solstack</span>
       <Button
         :icon="menuOpen ? 'pi pi-times' : 'pi pi-bars'"
         text
@@ -68,7 +68,7 @@ async function logout() {
       <div class="flex h-full flex-col p-4">
         <div class="mb-6 hidden items-center gap-2 px-2 md:flex">
           <i class="pi pi-sitemap text-primary text-xl" />
-          <span class="text-lg font-semibold">Harness</span>
+          <span class="text-lg font-semibold">Solstack</span>
         </div>
 
         <nav class="flex flex-col gap-1">

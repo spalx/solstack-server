@@ -43,13 +43,13 @@ const snippets = computed(() => {
       id: 'claude-code',
       label: 'Claude Code',
       where: 'Run in a terminal:',
-      code: `claude mcp add --transport http --scope user harness ${url} \\\n  --header "Authorization: Bearer ${token}"`,
+      code: `claude mcp add --transport http --scope user solstack ${url} \\\n  --header "Authorization: Bearer ${token}"`,
     },
     {
       id: 'cursor',
       label: 'Cursor',
       where: 'Add to ~/.cursor/mcp.json:',
-      code: JSON.stringify({ mcpServers: { harness: { url, headers: { Authorization: `Bearer ${token}` } } } }, null, 2),
+      code: JSON.stringify({ mcpServers: { solstack: { url, headers: { Authorization: `Bearer ${token}` } } } }, null, 2),
     },
     {
       id: 'vscode',
@@ -57,8 +57,8 @@ const snippets = computed(() => {
       where: 'Add to your user mcp.json (Command Palette → "MCP: Open User Configuration"). VS Code asks for the token once and stores it securely:',
       code: JSON.stringify(
         {
-          servers: { harness: { type: 'http', url, headers: { Authorization: 'Bearer ${input:harness-token}' } } },
-          inputs: [{ type: 'promptString', id: 'harness-token', description: 'Harness access token', password: true }],
+          servers: { solstack: { type: 'http', url, headers: { Authorization: 'Bearer ${input:solstack-token}' } } },
+          inputs: [{ type: 'promptString', id: 'solstack-token', description: 'Solstack access token', password: true }],
         },
         null,
         2,
@@ -67,8 +67,8 @@ const snippets = computed(() => {
     {
       id: 'codex',
       label: 'Codex',
-      where: 'Add to ~/.codex/config.toml and export HARNESS_TOKEN in your shell profile:',
-      code: `[mcp_servers.harness]\nurl = "${url}"\nbearer_token_env_var = "HARNESS_TOKEN"`,
+      where: 'Add to ~/.codex/config.toml and export SOLSTACK_TOKEN in your shell profile:',
+      code: `[mcp_servers.solstack]\nurl = "${url}"\nbearer_token_env_var = "SOLSTACK_TOKEN"`,
     },
   ];
 });
@@ -156,7 +156,7 @@ function revoke(token: AccessToken) {
   <section>
     <h2 class="mb-1 font-semibold">Connect your agent</h2>
     <p class="text-muted-color mb-4 text-sm">
-      The client app will set this up automatically. Until then, add the gateway by hand:
+      In a Solstack repository, <code>solstack setup</code> does this for you. Elsewhere, add the gateway by hand:
     </p>
     <div class="mb-4">
       <label class="mb-1 block text-sm font-medium">MCP server URL</label>

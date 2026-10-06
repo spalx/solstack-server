@@ -4,7 +4,7 @@ export const AGENTS = [
   { id: 'codex', name: 'OpenAI Codex' },
   { id: 'cursor', name: 'Cursor' },
   { id: 'copilot-vscode', name: 'GitHub Copilot (VS Code)' },
-  { id: 'windsurf', name: 'Windsurf' },
+  { id: 'devin', name: 'Devin Desktop (formerly Windsurf)' },
   { id: 'gemini-cli', name: 'Gemini CLI' },
 ] as const;
 

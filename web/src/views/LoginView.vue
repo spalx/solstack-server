@@ -29,7 +29,10 @@ async function submit() {
   try {
     const { user } = await api.post<{ user: SessionUser }>('/auth/login', { email: email.value, password: password.value });
     setSession(user);
-    await router.replace(nextPath());
+    const next = nextPath();
+    // Authorization flows start on the server, outside the single-page app.
+    if (next.startsWith('/api/connect/')) window.location.assign(next);
+    else await router.replace(next);
   } catch (failure) {
     error.value = errorMessage(failure);
   } finally {

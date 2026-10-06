@@ -9,7 +9,7 @@ defineProps<{ title: string; subtitle?: string }>();
     >
       <div class="mb-6 flex items-center gap-2">
         <i class="pi pi-sitemap text-primary text-xl" />
-        <span class="text-lg font-semibold">Harness</span>
+        <span class="text-lg font-semibold">Solstack</span>
       </div>
       <h1 class="text-xl font-semibold">{{ title }}</h1>
       <p v-if="subtitle" class="text-muted-color mt-1 mb-6 text-sm">{{ subtitle }}</p>

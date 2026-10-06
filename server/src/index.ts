@@ -3,7 +3,15 @@ import { bootstrap } from './bootstrap.js';
 import { loadConfig } from './config.js';
 
 const config = loadConfig();
-const deps = await bootstrap(config);
+const deps = await bootstrap(config).catch((error: unknown) => {
+  const code = (error as { code?: string }).code;
+  if (code === 'ECONNREFUSED' || code === 'ENOTFOUND') {
+    const { host } = new URL(config.databaseUrl);
+    console.error(`Cannot reach the database at ${host}. Start it with \`docker compose up -d db\` and try again.`);
+    process.exit(1);
+  }
+  throw error;
+});
 const app = createApp(deps);
 
 const server = app.listen(config.port, () => {

@@ -40,7 +40,15 @@ export function clientApiRoutes({ config, stores, integrations }: AppDeps): Rout
   async function repositoryStandards(repositoryId: string) {
     const standards = await stores.standards.listForRepository(repositoryId);
     return {
-      standards: standards.map(({ slug, name, description, content, updatedAt }) => ({ slug, name, description, content, updatedAt })),
+      standards: standards.map(({ kind, target, slug, name, description, content, updatedAt }) => ({
+        kind,
+        target,
+        slug,
+        name,
+        description,
+        content,
+        updatedAt,
+      })),
     };
   }
 

@@ -14,8 +14,13 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api, errorMessage } from '../../api';
 import MarkdownEditor from '../../components/MarkdownEditor.vue';
 import { formatDateTime } from '../../format';
+import { GUIDANCE } from '../../guidance';
 import { parseStandardFile, slugify } from '../../markdown';
-import type { Repository, Standard } from '../../types';
+import type { GuidanceKind, IntakeSection, IntakeTarget, Repository, Standard } from '../../types';
+
+/** Editor for an engineering standard, intake rule (including the built-in sections) or product context document. */
+const props = defineProps<{ kind: GuidanceKind }>();
+const info = GUIDANCE[props.kind];
 
 const route = useRoute();
 const router = useRouter();
@@ -24,6 +29,8 @@ const confirm = useConfirm();
 
 const id = computed(() => (route.params.id ? String(route.params.id) : null));
 const isNew = computed(() => id.value === null);
+/** The built-in intake section being written, whose name and ID are fixed. */
+const section = ref<IntakeSection | null>(null);
 
 const form = reactive({
   name: '',
@@ -56,6 +63,20 @@ onMounted(async () => {
       const { name, slug, description, content, enabled, appliesToAll, repositoryIds } = standard.value;
       Object.assign(form, { name, slug, description, content, enabled, appliesToAll, repositoryIds: [...repositoryIds] });
       slugTouched.value = true;
+    }
+    const target = (standard.value?.target ?? route.query.target) as IntakeTarget | undefined;
+    if (props.kind === 'intake' && target) {
+      const sections = (await api.get<{ sections: IntakeSection[] }>('/admin/intake/sections')).sections;
+      section.value = sections.find((s) => s.target === target) ?? null;
+      if (isNew.value && section.value) {
+        if (section.value.rule) {
+          // The section already exists: edit it instead of creating a second one.
+          await router.replace(`${info.path}/${section.value.rule.id}`);
+          return;
+        }
+        Object.assign(form, { name: section.value.name, slug: section.value.slug, description: section.value.description });
+        slugTouched.value = true;
+      }
     }
   } catch (failure) {
     loadError.value = errorMessage(failure);
@@ -94,12 +115,16 @@ async function save() {
   try {
     const body = { ...form, repositoryIds: form.appliesToAll ? [] : form.repositoryIds };
     const result = isNew.value
-      ? await api.post<{ standard: Standard }>('/admin/standards', body)
+      ? await api.post<{ standard: Standard }>('/admin/standards', {
+          ...body,
+          kind: props.kind,
+          target: section.value?.target ?? null,
+        })
       : await api.put<{ standard: Standard }>(`/admin/standards/${id.value}`, body);
     standard.value = result.standard;
     original.value = snapshot();
     toast.add({ severity: 'success', summary: `${result.standard.name} saved`, life: 3000 });
-    if (isNew.value) await router.replace(`/admin/standards/${result.standard.id}`);
+    if (isNew.value) await router.replace(`${info.path}/${result.standard.id}`);
   } catch (failure) {
     error.value = errorMessage(failure);
   } finally {
@@ -111,14 +136,16 @@ function remove() {
   if (!standard.value) return;
   confirm.require({
     header: `Delete "${standard.value.name}"?`,
-    message: 'Agents will stop receiving this standard. This cannot be undone.',
+    message: section.value
+      ? 'The section goes back to "not set" and agents stop receiving these rules. This cannot be undone.'
+      : `Agents will stop receiving this ${info.singular}. This cannot be undone.`,
     acceptProps: { label: 'Delete', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
       try {
         await api.delete(`/admin/standards/${standard.value!.id}`);
         original.value = snapshot();
-        await router.push('/admin/standards');
+        await router.push(info.path);
       } catch (failure) {
         toast.add({ severity: 'error', summary: 'Could not delete', detail: errorMessage(failure), life: 5000 });
       }
@@ -136,8 +163,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
 </script>
 
 <template>
-  <RouterLink to="/admin/standards" class="text-muted-color mb-4 inline-flex items-center gap-1 text-sm hover:underline">
-    <i class="pi pi-arrow-left text-xs" /> Standards
+  <RouterLink :to="info.path" class="text-muted-color mb-4 inline-flex items-center gap-1 text-sm hover:underline">
+    <i class="pi pi-arrow-left text-xs" /> {{ info.title }}
   </RouterLink>
 
   <Message v-if="loadError" severity="error" :closable="false">{{ loadError }}</Message>
@@ -146,14 +173,17 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
   <form v-else class="flex flex-col gap-6" @submit.prevent="save">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold">{{ isNew ? 'New standard' : form.name || 'Untitled standard' }}</h1>
+        <h1 class="text-2xl font-semibold">
+          {{ section ? section.name : isNew ? `New ${info.singular}` : form.name || 'Untitled' }}
+        </h1>
+        <p v-if="section" class="text-muted-color mt-1 max-w-2xl text-sm">{{ section.help }}</p>
         <p v-if="standard" class="text-muted-color mt-1 text-sm">
           Last updated {{ formatDateTime(standard.updatedAt) }}<template v-if="standard.updatedBy"> by {{ standard.updatedBy }}</template>
         </p>
       </div>
       <div class="flex gap-2">
         <Button v-if="!isNew" label="Delete" icon="pi pi-trash" severity="danger" text @click="remove" />
-        <Button type="submit" :label="isNew ? 'Create standard' : 'Save'" icon="pi pi-check" :loading="saving" :disabled="!isNew && !dirty" />
+        <Button type="submit" :label="isNew ? 'Create' : 'Save'" icon="pi pi-check" :loading="saving" :disabled="!isNew && !dirty" />
       </div>
     </div>
 
@@ -161,13 +191,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
 
     <div class="grid gap-6 xl:grid-cols-[1fr_18rem]">
       <div class="flex min-w-0 flex-col gap-5">
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div v-if="!section" class="grid gap-4 sm:grid-cols-2">
           <div class="flex flex-col gap-1">
             <label for="standard-name" class="text-sm font-medium">Name</label>
             <InputText
               id="standard-name"
               :model-value="form.name"
-              placeholder="Backend standards"
+              :placeholder="info.namePlaceholder"
               required
               @update:model-value="onNameInput"
             />
@@ -177,7 +207,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             <InputText
               id="standard-slug"
               :model-value="form.slug"
-              placeholder="backend-standards"
+              :placeholder="slugify(info.namePlaceholder)"
               class="font-mono"
               required
               @update:model-value="onSlugInput"
@@ -193,9 +223,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             v-model="form.description"
             rows="2"
             auto-resize
-            placeholder="Use when writing or reviewing backend code: services, controllers, migrations and tests."
+            :placeholder="info.descriptionPlaceholder"
           />
-          <small class="text-muted-color">Agents read this to decide whether to load the full standard, so be specific.</small>
+          <small class="text-muted-color">Agents read this to decide whether to load the full text, so be specific.</small>
         </div>
 
         <div class="flex flex-col gap-1">
@@ -204,7 +234,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             <Button label="Load from file" icon="pi pi-file-import" size="small" text @click="filePicker?.click()" />
             <input ref="filePicker" type="file" accept=".md,.markdown,text/markdown" class="hidden" @change="loadFile" />
           </div>
-          <MarkdownEditor id="standard-content" v-model="form.content" />
+          <MarkdownEditor
+            id="standard-content"
+            v-model="form.content"
+            :placeholder="section ? `# ${section.name}\n\nWrite the rules in Markdown…` : info.contentPlaceholder"
+          />
         </div>
       </div>
 
@@ -214,7 +248,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             Enabled
             <ToggleSwitch v-model="form.enabled" />
           </label>
-          <p class="text-muted-color mt-1 text-xs">Disabled standards are kept but not given to agents.</p>
+          <p class="text-muted-color mt-1 text-xs">When off, it is kept but not given to agents.</p>
         </section>
 
         <section class="rounded-xl border border-surface-200 bg-surface-0 p-4 dark:border-surface-800 dark:bg-surface-900">

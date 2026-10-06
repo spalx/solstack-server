@@ -9,7 +9,7 @@ import { computed, ref } from 'vue';
 import { renderMarkdown } from '../markdown';
 
 const model = defineModel<string>({ required: true });
-defineProps<{ id?: string; invalid?: boolean }>();
+defineProps<{ id?: string; invalid?: boolean; placeholder?: string }>();
 
 const tab = ref('write');
 const preview = computed(() => (tab.value === 'preview' ? renderMarkdown(model.value) : ''));
@@ -37,7 +37,7 @@ function indent(event: KeyboardEvent) {
           :invalid="invalid"
           rows="22"
           spellcheck="true"
-          placeholder="# Backend standards&#10;&#10;Write the standard in Markdown…"
+          :placeholder="placeholder ?? 'Write in Markdown…'"
           class="block w-full resize-y !rounded-none !border-0 font-mono text-sm leading-relaxed !shadow-none"
           @keydown.tab.exact.prevent="indent"
         />

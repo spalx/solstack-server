@@ -112,7 +112,12 @@ It also installs the repository's **engineering standards** as agent skills: one
 
 Admins manage standards under **Administration → Standards**: upload Markdown files (frontmatter `name` and `description` are used, so existing `SKILL.md` files keep their identity) or write them in the editor, and apply each one to all repositories or selected ones. Skills a team wrote themselves are never overwritten.
 
-When the admin changes the repository's agents or standards, run `solstack update` and commit the result. `solstack status` says when the installed standards are out of date. Files belonging to agents that were removed are deleted. Use `--prefix` on `init` for a command prefix other than `ss`.
+Two more kinds of guidance work the same way, each on its own admin page:
+
+- **Intake** (Administration → Intake): how agents write everything that is not code. Four built-in sections (Opening tasks, Comments, Pull requests, Commit messages) plus custom rules for anything else, such as release notes. Besides being installed as skills, the gateway adds the matching rules to the tools that create issues, cards, comments and pull requests, so agents see them at the moment they write, even outside the `/ss-*` commands. Short rules are included in full; long ones are summarized and agents read them with the gateway's `intake_rules` tool.
+- **Product context** (Administration → Product context): what the business and product are about, its users, terms and business rules. `/ss-propose` reads the relevant documents before planning.
+
+When the admin changes the repository's agents or any of this guidance, run `solstack update` and commit the result. `solstack status` says when what is installed is out of date. Files belonging to agents that were removed are deleted. Use `--prefix` on `init` for a command prefix other than `ss`.
 
 ### Setting up as a developer (once per machine)
 
@@ -133,6 +138,8 @@ solstack setup     # in the repository
 | `solstack status` | Shows sign-in, integrations and open changes; exits 1 if something required is missing |
 | `solstack connect [github\|trello]` | Reconnects an integration |
 | `solstack standards` | Lists the repository's engineering standards and the skill file for each. The `/ss-*` commands run it to decide which standards to follow |
+| `solstack intake` | Lists the rules for writing tasks, comments, pull requests, commit messages and the like |
+| `solstack context` | Lists the product and business context documents |
 | `solstack spec <args>` | Runs the bundled OpenSpec CLI against `.solstack/openspec` |
 
 In Codex the commands are skills: `$ss-propose`, `$ss-apply` and `$ss-archive`.

@@ -1,7 +1,14 @@
 import type { Pool } from '../db/pool.js';
+import type { IntakeTarget } from '../intake.js';
+
+/** What a guidance document is for. All kinds are delivered to agents as skills. */
+export type GuidanceKind = 'standard' | 'intake' | 'context';
 
 export interface StandardSummary {
   id: string;
+  kind: GuidanceKind;
+  /** The built-in intake section this document fills, if any. */
+  target: IntakeTarget | null;
   slug: string;
   name: string;
   description: string;
@@ -19,6 +26,8 @@ export interface Standard extends StandardSummary {
 }
 
 export interface StandardInput {
+  kind: GuidanceKind;
+  target: IntakeTarget | null;
   slug: string;
   name: string;
   description: string;
@@ -30,6 +39,8 @@ export interface StandardInput {
 
 interface StandardRow {
   id: string;
+  kind: GuidanceKind;
+  target: IntakeTarget | null;
   slug: string;
   name: string;
   description: string;
@@ -44,7 +55,7 @@ interface StandardRow {
 }
 
 const SELECT = `
-  SELECT standards.id, standards.slug, standards.name, standards.description, standards.enabled,
+  SELECT standards.id, standards.kind, standards.target, standards.slug, standards.name, standards.description, standards.enabled,
          standards.applies_to_all, standards.created_at, standards.updated_at,
          length(standards.content) AS content_length,
          users.name AS updated_by_name,
@@ -60,6 +71,8 @@ const GROUP = 'GROUP BY standards.id, users.name';
 function toSummary(row: StandardRow): StandardSummary {
   return {
     id: row.id,
+    kind: row.kind,
+    target: row.target,
     slug: row.slug,
     name: row.name,
     description: row.description,
@@ -76,8 +89,11 @@ function toSummary(row: StandardRow): StandardSummary {
 export class StandardStore {
   constructor(private readonly pool: Pool) {}
 
-  async list(): Promise<StandardSummary[]> {
-    const { rows } = await this.pool.query<StandardRow>(`${SELECT} ${FROM} ${GROUP} ORDER BY standards.name`);
+  async list(kind: GuidanceKind): Promise<StandardSummary[]> {
+    const { rows } = await this.pool.query<StandardRow>(
+      `${SELECT} ${FROM} WHERE standards.kind = $1 ${GROUP} ORDER BY standards.name`,
+      [kind],
+    );
     return rows.map(toSummary);
   }
 
@@ -90,34 +106,48 @@ export class StandardStore {
     return row ? { ...toSummary(row), content: row.content ?? '' } : null;
   }
 
-  /** Enabled standards that apply to a repository, with their content, for delivery to agents. */
-  async listForRepository(repositoryId: string): Promise<Standard[]> {
+  /**
+   * Enabled documents that apply to a repository, with their content, for delivery to agents. Without a
+   * repository only documents that apply to all repositories are returned.
+   */
+  async listForRepository(repositoryId: string | null, kind?: GuidanceKind): Promise<Standard[]> {
     const { rows } = await this.pool.query<StandardRow>(
       `${SELECT}, standards.content ${FROM}
        WHERE standards.enabled
+         AND ($2::text IS NULL OR standards.kind = $2)
          AND (standards.applies_to_all OR EXISTS (
            SELECT 1 FROM standard_repositories own
            WHERE own.standard_id = standards.id AND own.repository_id = $1))
        ${GROUP} ORDER BY standards.slug`,
-      [repositoryId],
+      [repositoryId, kind ?? null],
     );
     return rows.map((row) => ({ ...toSummary(row), content: row.content ?? '' }));
   }
 
-  async findIdsBySlug(slugs: string[]): Promise<Map<string, string>> {
-    const { rows } = await this.pool.query<{ id: string; slug: string }>(
-      'SELECT id, slug FROM standards WHERE slug = ANY($1)',
+  async findBySlug(slugs: string[]): Promise<Map<string, { id: string; kind: GuidanceKind; target: IntakeTarget | null }>> {
+    const { rows } = await this.pool.query<{ id: string; slug: string; kind: GuidanceKind; target: IntakeTarget | null }>(
+      'SELECT id, slug, kind, target FROM standards WHERE slug = ANY($1)',
       [slugs],
     );
-    return new Map(rows.map((row) => [row.slug, row.id]));
+    return new Map(rows.map(({ slug, ...row }) => [slug, row]));
   }
 
   async create(input: StandardInput, userId: string): Promise<Standard> {
     return this.transaction(async (query) => {
       const { rows } = await query<{ id: string }>(
-        `INSERT INTO standards (slug, name, description, content, enabled, applies_to_all, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-        [input.slug, input.name, input.description, input.content, input.enabled, input.appliesToAll, userId],
+        `INSERT INTO standards (kind, target, slug, name, description, content, enabled, applies_to_all, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        [
+          input.kind,
+          input.target,
+          input.slug,
+          input.name,
+          input.description,
+          input.content,
+          input.enabled,
+          input.appliesToAll,
+          userId,
+        ],
       );
       const id = rows[0]!.id;
       await this.replaceRepositories(query, id, input);
@@ -125,7 +155,8 @@ export class StandardStore {
     }).then((id) => this.findById(id) as Promise<Standard>);
   }
 
-  async update(id: string, input: StandardInput, userId: string): Promise<Standard | null> {
+  /** Kind and intake section are fixed when a document is created; everything else can change. */
+  async update(id: string, input: Omit<StandardInput, 'kind' | 'target'>, userId: string): Promise<Standard | null> {
     const updated = await this.transaction(async (query) => {
       const result = await query(
         `UPDATE standards SET slug = $2, name = $3, description = $4, content = $5, enabled = $6,
@@ -166,7 +197,11 @@ export class StandardStore {
     return result.rowCount === 1;
   }
 
-  private async replaceRepositories(query: Query, id: string, input: StandardInput): Promise<void> {
+  private async replaceRepositories(
+    query: Query,
+    id: string,
+    input: Pick<StandardInput, 'appliesToAll' | 'repositoryIds'>,
+  ): Promise<void> {
     await query('DELETE FROM standard_repositories WHERE standard_id = $1', [id]);
     if (!input.appliesToAll && input.repositoryIds.length) {
       await query(

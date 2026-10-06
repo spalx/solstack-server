@@ -101,8 +101,13 @@ export interface Overview {
   integrations: { id: string; name: string; enabled: boolean; configured: boolean; connectedUsers: number }[];
 }
 
+export type GuidanceKind = 'standard' | 'intake' | 'context';
+export type IntakeTarget = 'tasks' | 'comments' | 'pull_requests' | 'commits';
+
 export interface StandardSummary {
   id: string;
+  kind: GuidanceKind;
+  target: IntakeTarget | null;
   slug: string;
   name: string;
   description: string;
@@ -117,4 +122,13 @@ export interface StandardSummary {
 
 export interface Standard extends StandardSummary {
   content: string;
+}
+
+export interface IntakeSection {
+  target: IntakeTarget;
+  slug: string;
+  name: string;
+  description: string;
+  help: string;
+  rule: StandardSummary | null;
 }

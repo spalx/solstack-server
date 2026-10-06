@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { IntakeTarget } from '../intake.js';
 
 /** A value the admin fills in when configuring an integration. Secret fields are stored encrypted and never returned. */
 export interface SettingField {
@@ -49,6 +50,8 @@ export interface Tool {
   description: string;
   inputSchema: z.ZodRawShape;
   readOnly: boolean;
+  /** The intake section whose rules apply when this tool writes something (a task, a comment, a pull request). */
+  intakeTarget?: IntakeTarget;
   run(args: Record<string, unknown>, context: ToolContext): Promise<unknown>;
 }
 
@@ -84,6 +87,7 @@ export function defineTool<Shape extends z.ZodRawShape>(tool: {
   description: string;
   inputSchema: Shape;
   readOnly: boolean;
+  intakeTarget?: IntakeTarget;
   run(args: z.infer<z.ZodObject<Shape>>, context: ToolContext): Promise<unknown>;
 }): Tool {
   return tool as unknown as Tool;

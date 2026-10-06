@@ -9,12 +9,14 @@ import Message from 'primevue/message';
 import Tag from 'primevue/tag';
 import { computed, ref, watch } from 'vue';
 import { api, errorMessage } from '../api';
+import { GUIDANCE } from '../guidance';
 import { parseStandardFile, slugify, type ParsedStandard } from '../markdown';
+import type { GuidanceKind, StandardSummary } from '../types';
 
 const MAX_FILE_BYTES = 200_000;
 
 const visible = defineModel<boolean>('visible', { required: true });
-const props = defineProps<{ existingSlugs: string[] }>();
+const props = defineProps<{ kind: GuidanceKind }>();
 const emit = defineEmits<{ imported: [summary: string] }>();
 
 const files = ref<ParsedStandard[]>([]);
@@ -25,23 +27,39 @@ const error = ref('');
 const dragging = ref(false);
 const picker = ref<HTMLInputElement | null>(null);
 
-const existing = computed(() => new Set(props.existingSlugs));
+/** IDs of this kind that an import can replace. */
+const replaceable = ref(new Set<string>());
+/** IDs used by another kind or by a built-in intake section, which an import must not take. */
+const taken = ref(new Set<string>());
 const duplicates = computed(() => {
   const seen = new Set<string>();
   const repeated = new Set<string>();
   for (const file of files.value) (seen.has(file.slug) ? repeated : seen).add(file.slug);
   return repeated;
 });
-const invalid = computed(() => files.value.filter((file) => !file.slug || !file.name.trim() || !file.content.trim()));
-const replacements = computed(() => files.value.filter((file) => existing.value.has(file.slug)).length);
+const invalid = computed(() =>
+  files.value.filter((file) => !file.slug || !file.name.trim() || !file.content.trim() || taken.value.has(file.slug)),
+);
+const replacements = computed(() => files.value.filter((file) => replaceable.value.has(file.slug)).length);
 const canImport = computed(() => files.value.length > 0 && duplicates.value.size === 0 && invalid.value.length === 0);
 
-watch(visible, (open) => {
-  if (open) {
-    files.value = [];
-    rejected.value = [];
-    replaceExisting.value = false;
-    error.value = '';
+watch(visible, async (open) => {
+  if (!open) return;
+  files.value = [];
+  rejected.value = [];
+  replaceExisting.value = false;
+  error.value = '';
+  try {
+    const lists = await Promise.all(
+      (['standard', 'intake', 'context'] as const).map((kind) =>
+        api.get<{ standards: StandardSummary[] }>(`/admin/standards?kind=${kind}`).then((r) => r.standards),
+      ),
+    );
+    const all = lists.flat();
+    replaceable.value = new Set(all.filter((d) => d.kind === props.kind && !d.target).map((d) => d.slug));
+    taken.value = new Set(all.filter((d) => d.kind !== props.kind || d.target).map((d) => d.slug));
+  } catch (failure) {
+    error.value = errorMessage(failure);
   }
 });
 
@@ -68,7 +86,8 @@ function status(file: ParsedStandard): { label: string; severity: 'success' | 'w
   if (!file.content.trim()) return { label: 'Empty', severity: 'danger' };
   if (!file.slug) return { label: 'Needs an ID', severity: 'danger' };
   if (duplicates.value.has(file.slug)) return { label: 'Duplicate ID', severity: 'danger' };
-  if (existing.value.has(file.slug)) return replaceExisting.value ? { label: 'Replaces', severity: 'warn' } : { label: 'Skipped', severity: 'secondary' };
+  if (taken.value.has(file.slug)) return { label: 'ID in use', severity: 'danger' };
+  if (replaceable.value.has(file.slug)) return replaceExisting.value ? { label: 'Replaces', severity: 'warn' } : { label: 'Skipped', severity: 'secondary' };
   return { label: 'New', severity: 'success' };
 }
 
@@ -77,6 +96,7 @@ async function submit() {
   error.value = '';
   try {
     const result = await api.post<{ created: string[]; replaced: string[]; skipped: string[] }>('/admin/standards/import', {
+      kind: props.kind,
       items: files.value.map(({ slug, name, description, content }) => ({ slug, name, description, content })),
       replaceExisting: replaceExisting.value,
     });
@@ -96,7 +116,7 @@ async function submit() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal header="Upload standards" class="w-full max-w-5xl">
+  <Dialog v-model:visible="visible" modal :header="`Upload ${GUIDANCE[kind].plural}`" class="w-full max-w-5xl">
     <div
       class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors"
       :class="dragging ? 'border-primary bg-primary-50 dark:bg-primary-950' : 'border-surface-300 dark:border-surface-600'"
@@ -109,7 +129,7 @@ async function submit() {
       <Button label="Choose files" icon="pi pi-folder-open" size="small" outlined @click="picker?.click()" />
       <input ref="picker" type="file" accept=".md,.markdown,text/markdown" multiple class="hidden" @change="onPick" />
       <p class="text-muted-color text-xs">
-        Each file becomes one standard. <code>name</code> and <code>description</code> frontmatter are used when present.
+        Each file becomes one {{ GUIDANCE[kind].singular }}. <code>name</code> and <code>description</code> frontmatter are used when present.
       </p>
     </div>
 
@@ -131,7 +151,7 @@ async function submit() {
             size="small"
             fluid
             class="font-mono"
-            :invalid="!data.slug || duplicates.has(data.slug)"
+            :invalid="!data.slug || duplicates.has(data.slug) || taken.has(data.slug)"
             @update:model-value="(value) => (data.slug = slugify(value ?? ''))"
           />
         </template>
@@ -154,7 +174,7 @@ async function submit() {
 
     <label v-if="replacements" class="mt-4 flex items-center gap-2 text-sm">
       <Checkbox v-model="replaceExisting" binary input-id="replace-existing" />
-      Replace the {{ replacements }} existing standard{{ replacements === 1 ? '' : 's' }} with the same ID
+      Replace the {{ replacements }} existing {{ GUIDANCE[kind].singular }}{{ replacements === 1 ? '' : 's' }} with the same ID
       <span class="text-muted-color">(their scope and on/off setting are kept)</span>
     </label>
 

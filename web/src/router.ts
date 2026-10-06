@@ -30,21 +30,33 @@ export const router = createRouter({
       component: () => import('./views/admin/RepositoriesView.vue'),
       meta: { admin: true, title: 'Repositories' },
     },
-    {
-      path: '/admin/standards',
-      component: () => import('./views/admin/StandardsView.vue'),
-      meta: { admin: true, title: 'Standards' },
-    },
-    {
-      path: '/admin/standards/new',
-      component: () => import('./views/admin/StandardEditorView.vue'),
-      meta: { admin: true, title: 'New standard' },
-    },
-    {
-      path: '/admin/standards/:id',
-      component: () => import('./views/admin/StandardEditorView.vue'),
-      meta: { admin: true, title: 'Edit standard' },
-    },
+    ...(
+      [
+        ['standard', '/admin/standards', 'Standards'],
+        ['intake', '/admin/intake', 'Intake'],
+        ['context', '/admin/context', 'Product context'],
+      ] as const
+    ).flatMap(([kind, path, title]) => [
+      {
+        path,
+        component:
+          kind === 'intake' ? () => import('./views/admin/IntakeView.vue') : () => import('./views/admin/StandardsView.vue'),
+        props: kind === 'intake' ? {} : { kind },
+        meta: { admin: true, title },
+      },
+      {
+        path: `${path}/new`,
+        component: () => import('./views/admin/StandardEditorView.vue'),
+        props: { kind },
+        meta: { admin: true, title },
+      },
+      {
+        path: `${path}/:id`,
+        component: () => import('./views/admin/StandardEditorView.vue'),
+        props: { kind },
+        meta: { admin: true, title },
+      },
+    ]),
     { path: '/admin/users', component: () => import('./views/admin/UsersView.vue'), meta: { admin: true, title: 'Users' } },
     { path: '/admin/activity', component: () => import('./views/admin/ActivityView.vue'), meta: { admin: true, title: 'Activity' } },
     { path: '/:pathMatch(.*)*', redirect: '/connections' },
@@ -57,6 +69,22 @@ router.beforeEach(async (to) => {
   if (!user) return { path: '/login', query: { next: to.fullPath } };
   if (to.meta.admin && user.role !== 'admin') return '/connections';
   return true;
+});
+
+// After a deploy (or a dev-server restart) an open tab may ask for code chunks that no longer exist.
+// Loading the page fresh picks up the new ones instead of leaving a blank screen. Only once a minute,
+// so a chunk that is really broken shows an error instead of reloading forever.
+const RELOAD_KEY = 'solstack:chunk-reload';
+router.onError((error, to) => {
+  if (!/dynamically imported module|Importing a module script failed/i.test(String((error as Error)?.message))) return;
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  } catch {
+    return;
+  }
+  window.location.assign(to.fullPath);
 });
 
 router.afterEach((to) => {

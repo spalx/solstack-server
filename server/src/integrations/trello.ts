@@ -261,6 +261,7 @@ export const trelloIntegration: Integration = {
       title: 'Create card',
       description: 'Create a card in a list.',
       readOnly: false,
+      intakeTarget: 'tasks',
       inputSchema: {
         list_id: id('List'),
         name: z.string().min(1),
@@ -318,6 +319,7 @@ export const trelloIntegration: Integration = {
       title: 'Comment on card',
       description: 'Add a comment to a card.',
       readOnly: false,
+      intakeTarget: 'comments',
       inputSchema: { card_id: id('Card'), text: z.string().min(1) },
       async run(args, context) {
         const action = await trello<{ id: string; date: string }>(

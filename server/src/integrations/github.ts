@@ -304,6 +304,7 @@ export const githubIntegration: Integration = {
       title: 'Create issue',
       description: 'Create an issue in a repository.',
       readOnly: false,
+      intakeTarget: 'tasks',
       inputSchema: {
         owner,
         repo,
@@ -325,6 +326,7 @@ export const githubIntegration: Integration = {
       title: 'Comment on issue or pull request',
       description: 'Add a comment to an issue or pull request.',
       readOnly: false,
+      intakeTarget: 'comments',
       inputSchema: { owner, repo, issue_number: z.number().int().positive(), body: z.string().min(1) },
       async run(args, context) {
         const comment = await github<{ id: number; html_url: string }>(
@@ -393,6 +395,7 @@ export const githubIntegration: Integration = {
       title: 'Create pull request',
       description: 'Open a pull request from an already-pushed branch.',
       readOnly: false,
+      intakeTarget: 'pull_requests',
       inputSchema: {
         owner,
         repo,

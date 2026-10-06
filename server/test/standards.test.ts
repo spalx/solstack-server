@@ -61,7 +61,7 @@ describe('standards', () => {
       .expect(400);
     expect(noRepos.body.error).toMatch(/at least one repository/);
     const taken = await admin.post('/api/admin/standards').send(backend).expect(409);
-    expect(taken.body.error).toMatch(/already exists/);
+    expect(taken.body.error).toMatch(/already used/);
   });
 
   it('can be disabled and deleted', async () => {
@@ -134,6 +134,8 @@ describe('delivering standards to a repository', () => {
     // frontend-standards applies to all; backend-standards is scoped to acme/api; only-web to acme/web.
     expect(slugs).toEqual(['frontend-standards', 'only-web']);
     expect(byKey.body.standards[0]).toEqual({
+      kind: 'standard',
+      target: null,
       slug: 'frontend-standards',
       name: 'Frontend standards',
       description: '',

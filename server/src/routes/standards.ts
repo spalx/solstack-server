@@ -11,7 +11,8 @@ const slug = z
   .string()
   .trim()
   .min(1)
-  .max(80)
+  // Standards become agent skills, whose names are limited to 64 characters.
+  .max(64)
   .regex(SLUG_PATTERN, 'Use lowercase letters, digits and single dashes, e.g. backend-standards');
 
 const text = {

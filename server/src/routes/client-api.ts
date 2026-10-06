@@ -37,6 +37,25 @@ export function clientApiRoutes({ config, stores, integrations }: AppDeps): Rout
     res.json(await repositorySetup(repository));
   });
 
+  async function repositoryStandards(repositoryId: string) {
+    const standards = await stores.standards.listForRepository(repositoryId);
+    return {
+      standards: standards.map(({ slug, name, description, content, updatedAt }) => ({ slug, name, description, content, updatedAt })),
+    };
+  }
+
+  /** The engineering standards that apply to the repository, for `init`. */
+  router.get('/v1/repository/standards', requireRepositoryKey(stores), async (req, res) => {
+    res.json(await repositoryStandards(req.repository!.id));
+  });
+
+  /** The same, for `update`, read by any signed-in developer. */
+  router.get('/v1/repositories/:id/standards', requireDeveloperToken(stores), async (req, res) => {
+    const repository = await stores.repositories.findById(z.uuid().parse(req.params.id));
+    if (!repository) throw new HttpError(404, 'Repository not found. It may have been deleted on the server.');
+    res.json(await repositoryStandards(repository.id));
+  });
+
   /** Who the developer is and what they have connected. Authenticated with a developer access token. */
   router.get('/v1/me', requireDeveloperToken(stores), async (req, res) => {
     res.json({

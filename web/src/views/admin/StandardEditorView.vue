@@ -182,7 +182,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
               required
               @update:model-value="onSlugInput"
             />
-            <small class="text-muted-color">Used as the file name agents see. Lowercase, with dashes.</small>
+            <small class="text-muted-color">The skill name agents see. Lowercase with dashes, up to 64 characters.</small>
           </div>
         </div>
 

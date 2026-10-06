@@ -1,4 +1,4 @@
-import type supertest from 'supertest';
+import supertest from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, signedInUser } from './helpers.js';
 
@@ -115,3 +115,34 @@ describe('importing standards', () => {
   });
 });
 
+describe('delivering standards to a repository', () => {
+  it('returns enabled standards that apply to it, to both the client and developers', async () => {
+    const other = (await admin.post('/api/admin/repositories').send({ name: 'acme/web' }).expect(201)).body;
+    const token = (await developer.post('/api/me/tokens').send({ name: 'cli' }).expect(201)).body.token;
+    await admin.post('/api/admin/standards').send({ ...backend, slug: 'only-web', appliesToAll: false, repositoryIds: [other.repository.id] }).expect(201);
+    const off = (await admin.post('/api/admin/standards').send({ ...backend, slug: 'disabled-one' }).expect(201)).body.standard;
+    await admin.patch(`/api/admin/standards/${off.id}`).send({ enabled: false }).expect(204);
+
+    const byKey = await supertest(t.app).get('/api/v1/repository/standards').set('Authorization', `Bearer ${other.apiKey}`).expect(200);
+    const byToken = await supertest(t.app)
+      .get(`/api/v1/repositories/${other.repository.id}/standards`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(byToken.body).toEqual(byKey.body);
+
+    const slugs = byKey.body.standards.map((s: { slug: string }) => s.slug);
+    // frontend-standards applies to all; backend-standards is scoped to acme/api; only-web to acme/web.
+    expect(slugs).toEqual(['frontend-standards', 'only-web']);
+    expect(byKey.body.standards[0]).toEqual({
+      slug: 'frontend-standards',
+      name: 'Frontend standards',
+      description: '',
+      content: '# Frontend\n',
+      updatedAt: expect.any(String),
+    });
+  });
+
+  it('caps IDs at 64 characters, the agent skill name limit', async () => {
+    await admin.post('/api/admin/standards').send({ ...backend, slug: 'a'.repeat(65) }).expect(400);
+  });
+});

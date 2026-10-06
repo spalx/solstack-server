@@ -90,6 +90,20 @@ export class StandardStore {
     return row ? { ...toSummary(row), content: row.content ?? '' } : null;
   }
 
+  /** Enabled standards that apply to a repository, with their content, for delivery to agents. */
+  async listForRepository(repositoryId: string): Promise<Standard[]> {
+    const { rows } = await this.pool.query<StandardRow>(
+      `${SELECT}, standards.content ${FROM}
+       WHERE standards.enabled
+         AND (standards.applies_to_all OR EXISTS (
+           SELECT 1 FROM standard_repositories own
+           WHERE own.standard_id = standards.id AND own.repository_id = $1))
+       ${GROUP} ORDER BY standards.slug`,
+      [repositoryId],
+    );
+    return rows.map((row) => ({ ...toSummary(row), content: row.content ?? '' }));
+  }
+
   async findIdsBySlug(slugs: string[]): Promise<Map<string, string>> {
     const { rows } = await this.pool.query<{ id: string; slug: string }>(
       'SELECT id, slug FROM standards WHERE slug = ANY($1)',

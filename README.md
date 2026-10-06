@@ -108,7 +108,11 @@ git add -A && git commit -m "Set up Solstack"
 | `.claude/commands/`, `.cursor/commands/`, `.github/prompts/`, `.agents/skills/`, `.devin/workflows/`, `.gemini/commands/` | Short command files for each selected agent, pointing at `.solstack/commands/` |
 | `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json` | A `solstack` MCP server entry, merged with any servers already there |
 
-When the admin changes the repository's agents, run `solstack update` and commit the result. Files belonging to agents that were removed are deleted. Use `--prefix` on `init` for a command prefix other than `ss`.
+It also installs the repository's **engineering standards** as agent skills: one `SKILL.md` per standard in each agent's skills folder (`.claude/skills/`, `.cursor/skills/`, `.github/skills/`, `.agents/skills/`, `.devin/skills/`, `.gemini/skills/`). Agents read each skill's description and load the full standard only when the task matches it, so write descriptions that say when a standard applies.
+
+Admins manage standards under **Administration → Standards**: upload Markdown files (frontmatter `name` and `description` are used, so existing `SKILL.md` files keep their identity) or write them in the editor, and apply each one to all repositories or selected ones. Skills a team wrote themselves are never overwritten.
+
+When the admin changes the repository's agents or standards, run `solstack update` and commit the result. `solstack status` says when the installed standards are out of date. Files belonging to agents that were removed are deleted. Use `--prefix` on `init` for a command prefix other than `ss`.
 
 ### Setting up as a developer (once per machine)
 
@@ -142,6 +146,8 @@ Token-authenticated (`Authorization: Bearer …`). There are no cookies on these
 |---|---|---|
 | `GET /api/v1/repository` | Repository API key (`ssr_…`) | Repository, supported agents, required integrations, MCP URL |
 | `GET /api/v1/repositories/:id` | Developer token | The same, for `solstack update` |
+| `GET /api/v1/repository/standards` | Repository API key | Enabled standards that apply to the repository |
+| `GET /api/v1/repositories/:id/standards` | Developer token | The same, for `solstack update` |
 | `GET /api/v1/me` | Developer token (`ssd_…`) | User and connection status for each integration |
 | `POST /mcp` | Developer token | MCP over Streamable HTTP (stateless) |
 

@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-harness}
+      POSTGRES_DB: harness
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    # Published on localhost only, for local development and tests.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    profiles: ["app"]
+    depends_on:
+      db:
+        condition: service_healthy
+    # BASE_URL, ENCRYPTION_KEY and TRUST_PROXY come from .env; the server refuses to start if they are missing.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://harness:${POSTGRES_PASSWORD:-harness}@db:5432/harness
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+volumes:
+  db-data:

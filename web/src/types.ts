@@ -100,3 +100,21 @@ export interface Overview {
   toolCallsLast24h: { total: number; failed: number };
   integrations: { id: string; name: string; enabled: boolean; configured: boolean; connectedUsers: number }[];
 }
+
+export interface StandardSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  appliesToAll: boolean;
+  repositoryIds: string[];
+  contentLength: number;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Standard extends StandardSummary {
+  content: string;
+}

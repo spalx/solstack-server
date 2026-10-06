@@ -30,6 +30,21 @@ export const router = createRouter({
       component: () => import('./views/admin/RepositoriesView.vue'),
       meta: { admin: true, title: 'Repositories' },
     },
+    {
+      path: '/admin/standards',
+      component: () => import('./views/admin/StandardsView.vue'),
+      meta: { admin: true, title: 'Standards' },
+    },
+    {
+      path: '/admin/standards/new',
+      component: () => import('./views/admin/StandardEditorView.vue'),
+      meta: { admin: true, title: 'New standard' },
+    },
+    {
+      path: '/admin/standards/:id',
+      component: () => import('./views/admin/StandardEditorView.vue'),
+      meta: { admin: true, title: 'Edit standard' },
+    },
     { path: '/admin/users', component: () => import('./views/admin/UsersView.vue'), meta: { admin: true, title: 'Users' } },
     { path: '/admin/activity', component: () => import('./views/admin/ActivityView.vue'), meta: { admin: true, title: 'Activity' } },
     { path: '/:pathMatch(.*)*', redirect: '/connections' },

@@ -21,7 +21,10 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
   }
   if (error instanceof ZodError) {
     res.status(400).json({
-      error: error.issues.map((issue) => (issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message)).join('; '),
+      // Custom messages are written as full sentences; built-in ones need the field name for context.
+      error: error.issues
+        .map((issue) => (issue.path.length && issue.code !== 'custom' ? `${issue.path.join('.')}: ${issue.message}` : issue.message))
+        .join('; '),
     });
     return;
   }

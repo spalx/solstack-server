@@ -23,6 +23,7 @@ const adminNav: NavItem[] = [
   { to: '/admin', label: 'Overview', icon: 'pi pi-chart-bar' },
   { to: '/admin/integrations', label: 'Integrations', icon: 'pi pi-th-large' },
   { to: '/admin/repositories', label: 'Repositories', icon: 'pi pi-book' },
+  { to: '/admin/standards', label: 'Standards', icon: 'pi pi-list-check' },
   { to: '/admin/users', label: 'Users', icon: 'pi pi-users' },
   { to: '/admin/activity', label: 'Activity', icon: 'pi pi-history' },
 ];

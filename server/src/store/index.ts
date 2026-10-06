@@ -6,6 +6,7 @@ import { ConnectionStore } from './connections.js';
 import { IntegrationStore } from './integrations.js';
 import { RepositoryStore } from './repositories.js';
 import { SessionStore } from './sessions.js';
+import { StandardStore } from './standards.js';
 import { UserStore } from './users.js';
 
 export interface Stores {
@@ -16,6 +17,7 @@ export interface Stores {
   connections: ConnectionStore;
   repositories: RepositoryStore;
   activity: ActivityStore;
+  standards: StandardStore;
 }
 
 export function createStores(pool: Pool, box: SecretBox): Stores {
@@ -27,5 +29,6 @@ export function createStores(pool: Pool, box: SecretBox): Stores {
     connections: new ConnectionStore(pool, box),
     repositories: new RepositoryStore(pool),
     activity: new ActivityStore(pool),
+    standards: new StandardStore(pool),
   };
 }

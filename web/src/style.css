@@ -2,6 +2,7 @@
 
 @import 'tailwindcss';
 @plugin 'tailwindcss-primeui';
+@plugin '@tailwindcss/typography';
 @import 'primeicons/primeicons.css';
 
 body {

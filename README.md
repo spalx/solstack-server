@@ -132,6 +132,7 @@ solstack setup     # in the repository
 | `/ss-archive [change]` | Merges the change's specs into the main specs and archives it |
 | `solstack status` | Shows sign-in, integrations and open changes; exits 1 if something required is missing |
 | `solstack connect [github\|trello]` | Reconnects an integration |
+| `solstack standards` | Lists the repository's engineering standards and the skill file for each. The `/ss-*` commands run it to decide which standards to follow |
 | `solstack spec <args>` | Runs the bundled OpenSpec CLI against `.solstack/openspec` |
 
 In Codex the commands are skills: `$ss-propose`, `$ss-apply` and `$ss-archive`.

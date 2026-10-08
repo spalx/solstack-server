@@ -29,9 +29,8 @@ Requirements: Node 24+, Docker.
 
 ```bash
 cp .env.example .env                    # then set ENCRYPTION_KEY (openssl rand -base64 32)
-docker compose up -d db                 # Postgres on localhost:5432
 npm install
-npm run dev                             # API on :3000, web on :5173 (proxies /api and /mcp)
+npm run dev                             # starts Postgres on localhost:5432, API on :3000, web on :5173
 npm run admin:create -- you@example.com "Your Name"   # prints an invite link to set your password
 ```
 
@@ -39,7 +38,7 @@ Open the invite link, set a password, and you land in the admin console. In deve
 
 To try the CLI from this checkout, link it once (`npm link -w client`) so `solstack` is on your PATH. Agents start `solstack mcp` by name.
 
-Tests run against the `solstack_test` database the compose file creates (the client tests need no database):
+`npm run dev` starts the database with `docker-compose.dev.yml`, which publishes it on localhost and creates the `solstack_test` database the tests use (`npm run db:up` starts just the database). The client tests need no database:
 
 ```bash
 npm test
@@ -47,28 +46,25 @@ npm test
 
 ## Deploying to a VPS
 
-1. Point a domain at the VPS and put an HTTPS reverse proxy in front of port 3000. OAuth providers require HTTPS callbacks. With [Caddy](https://caddyserver.com/), the whole config is:
-   ```
-   solstack.example.com {
-       reverse_proxy localhost:3000
-   }
-   ```
-2. Create `.env` next to `docker-compose.yml`:
-   ```
-   BASE_URL=https://solstack.example.com
-   ENCRYPTION_KEY=<openssl rand -base64 32>
-   POSTGRES_PASSWORD=<a strong password>
-   TRUST_PROXY=1
-   ```
-3. Start everything and create the first admin:
-   ```bash
-   docker compose --profile app up -d --build
-   docker compose exec app node server/dist/cli.js create-admin you@example.com "Your Name"
-   ```
+The production stack is Postgres, the app and nginx. Only nginx is reachable from outside, on **port 80**. Cloudflare sits in front of it and provides HTTPS.
+
+1. **Server:** install Docker (`curl -fsSL https://get.docker.com | sh`) and allow port 80 (plus SSH) in the firewall. Building the image needs about 2 GB of RAM; on a 1 GB server, add swap first.
+2. **Code:** clone the repository (for a private repository, add the server's SSH key as a read-only deploy key on GitHub).
+3. **Set up:** run `./setup.sh` in the repository. It asks for the domain and the first admin, writes `.env` with generated secrets, builds and starts everything, and prints the admin's invite link.
+4. **Cloudflare**, for the domain:
+   - DNS: an A record pointing to the server's IP, proxied (orange cloud).
+   - SSL/TLS: encryption mode **Flexible** (Cloudflare reaches the server over HTTP on port 80), and **Always Use HTTPS** on.
+   - Security: do not put bot challenges or "Under Attack" mode on `/mcp` and `/api/v1`. The `solstack` CLI and agents call them, and they cannot solve challenges.
+
+To update: `git pull && ./setup.sh`. It keeps `.env` and only rebuilds and restarts.
+
+With Flexible mode, traffic between Cloudflare and the server is not encrypted. For end-to-end encryption, switch Cloudflare to "Full (strict)" with a Cloudflare Origin Certificate on nginx, and publish port 443.
 
 The server runs database migrations on startup. **Back up `ENCRYPTION_KEY`.** It encrypts integration secrets and every developer's GitHub and Trello tokens, so losing it means everyone has to reconnect.
 
-If a user loses their password, an admin can issue a reset link from the Users page. From the shell: `node server/dist/cli.js reset-link <email>`.
+If a user loses their password, an admin can issue a reset link from the Users page. From the shell: `docker compose exec app node server/dist/cli.js reset-link <email>`.
+
+Back up the database regularly, for example from cron: `docker compose exec -T db pg_dump -U solstack solstack | gzip > backup-$(date +%F).sql.gz`, and copy the files off the server.
 
 ## Setting up the integrations
 

@@ -1,0 +1,9 @@
+# Local development additions: publishes Postgres on localhost and creates the test database.
+# Used by `npm run dev`; run it by hand with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
+services:
+  db:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro

@@ -35,8 +35,10 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgres://solstack:${POSTGRES_PASSWORD:-solstack}@db:5432/solstack
+    # Localhost only: the HTTPS reverse proxy on the same machine is the public entry point. Docker opens
+    # published ports past host firewalls such as ufw, so binding to all interfaces would expose plain HTTP.
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
 
 volumes:
   db-data:
